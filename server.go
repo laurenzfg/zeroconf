@@ -769,17 +769,24 @@ func (s *Server) multicastResponse(msg *dns.Msg, ifIndex int) error {
 		// As of Golang 1.18.4
 		// On Windows, the ControlMessage for ReadFrom and WriteTo methods of PacketConn is not implemented.
 		var wcm ipv4.ControlMessage
-		if ifIndex != 0 {
-			switch runtime.GOOS {
-			case "darwin", "ios", "linux":
-				wcm.IfIndex = ifIndex
-			default:
-				iface, _ := net.InterfaceByIndex(ifIndex)
-				if err := s.ipv4conn.SetMulticastInterface(iface); err != nil {
-					log.Printf("[WARN] mdns: Failed to set multicast interface: %v", err)
+		if ifIndex != 0 { // we know from which interface the query originated
+			// we only want to response to the query on the interface we received the query
+			// but we only want to response AT ALL if the query originated from on of the interfaces we are responsible for
+			// hence we loop through all ifaces we are responsible for and only respond if the query interface is in our ifaces array
+			for _, intf := range s.ifaces {
+				if intf.Index == ifIndex {
+					switch runtime.GOOS {
+					case "darwin", "ios", "linux":
+						wcm.IfIndex = ifIndex
+					default:
+						iface, _ := net.InterfaceByIndex(ifIndex)
+						if err := s.ipv4conn.SetMulticastInterface(iface); err != nil {
+							log.Printf("[WARN] mdns: Failed to set multicast interface: %v", err)
+						}
+					}
+					_, _ = s.ipv4conn.WriteTo(buf, &wcm, ipv4Addr)
 				}
 			}
-			_, _ = s.ipv4conn.WriteTo(buf, &wcm, ipv4Addr)
 		} else {
 			for _, intf := range s.ifaces {
 				switch runtime.GOOS {
