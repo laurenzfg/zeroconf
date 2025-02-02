@@ -5,7 +5,6 @@ import (
 	"log"
 	"math/rand"
 	"net"
-	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -71,12 +70,7 @@ func Register(instance, service, domain string, port int, text []string, ifaces 
 	}
 
 	var err error
-	if entry.HostName == "" {
-		entry.HostName, err = os.Hostname()
-		if err != nil {
-			return nil, fmt.Errorf("could not determine host")
-		}
-	}
+	entry.HostName = instance
 
 	if !strings.HasSuffix(trimDot(entry.HostName), entry.Domain) {
 		entry.HostName = fmt.Sprintf("%s.%s.", trimDot(entry.HostName), trimDot(entry.Domain))
